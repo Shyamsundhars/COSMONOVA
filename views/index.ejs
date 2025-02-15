@@ -33,10 +33,10 @@
     // These 2 lines are published by NORAD and allow us to predict where
     // the ISS is at any given moment. They are regularly updated.
     // Get the latest from: https://celestrak.com/satcat/tle.php?CATNR=25544. 
-    const ISS_TLE = `<%=tlelines%>`;
+    const ISS_TLE =`<%=tlelines%>`;
     const satrec = satellite.twoline2satrec(
       ISS_TLE.split('\n')[0].trim(), 
-      ISS_TLE.split('\n')[1].trim()
+      ISS_TLE.split('\n')[1].trim() 
     );
     // Give SatelliteJS the TLE's and a specific time.
     // Get back a longitude, latitude, height (km).
