@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.81/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.js"></script>
+  <style>
+    html, body, #cesiumContainer { 
+      width: 100%; 
+      height: 100%; 
+      margin: 0; 
+      padding: 0;  
+    }
+    #loading { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      z-index: 999; 
+    }
+    .disappear { 
+      display: none; 
+    }
+    #satelliteList {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      z-index: 1000;
+      min-width: 200px;
+    }
+    .category-header {
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .category-header label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .category-header input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    .category-content {
+      margin-left: 10px;
+      margin-bottom: 15px;
+    }
+    .satellite-item {
+      margin: 5px 0;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background-color 0.3s;
+    }
+    .satellite-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .satellite-item.selected {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .satellite-item.hidden {
+      display: none;
+    }
+    .color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      display: inline-block;
+    }
+    #updateStatus {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      z-index: 1000;
+    }
+    /* #satelliteList{
+      margin-right:170vh;
+    } */
+    .cesium-viewer-toolbar{
+      margin-right:200vh;
+    }
+    #updateStatus{
+      margin-top:10vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>Loading...</h1>
+  </div>
+  <div id="updateStatus"></div>
+  <div id="satelliteList"></div>
+  <div id="cesiumContainer"></div>
+
+  <script>
+    // Initialize viewer
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      imageryProvider: new Cesium.TileMapServiceImageryProvider({
+        url: Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII"),
+      }),
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: true,
+      infoBox: false,
+      navigationHelpButton: false,
+      sceneModePicker: false
+    });
+
+    const categoryColors = {
+    active: Cesium.Color.RED,
+    debris: Cesium.Color.fromCssColorString('#808080') // Gray
+    };
+
+    // Categorized satellite data
+    const satelliteCategories = {
+  active: {
+    name: "Active Satellites",
+    satellites: [
+      {
+        name: "ISS (ZARYA)",
+        tle: [
+          "1 25544U 98067A   25047.29375000  .00010000  00000+0  18814-3 0  9990",
+          "2 25544  51.6429 137.4994 0006000 126.2188 236.7543 15.49720899432578"
+        ],
+        color: categoryColors.active // Assign red color
+      },
+      // Add more active satellites here
+      {
+        name: "ISS (ZARYA)",
+        tle: [
+          "1 25544U 98067A   25046.66546928  .00014234  00000+0  25559-3 0  9995",
+          "2 25544  51.6396 188.9093 0004418 323.8501 155.7067 15.50144684496311"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "CSS (TIANHE)",
+        tle: [
+          "1 48274U 21035A   25046.44671435  .00033579  00000+0  41148-3 0  9994",
+          "2 48274  41.4668  41.8539 0004646 185.0615 175.0177 15.59641762217129"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "ISS (NAUKA)",
+        tle: [
+          "1 49044U 21066A   25046.57960390  .00014705  00000+0  26380-3 0  9990",
+          "2 49044  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416200855"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "FREGAT DEB",
+        tle: [
+          "1 49271U 11037PF  25044.14452191  .00006360  00000+0  13342-1 0  9995",
+          "2 49271  51.6528  10.1480 0929916 282.8084  67.0552 12.27332805164665"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "CSS (WENTIAN)",
+        tle: [
+          "1 53239U 22085A   25046.44671435  .00033579  00000+0  41148-3 0  9997",
+          "2 53239  41.4668  41.8539 0004646 185.0615 175.0177 15.59641762214943"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "CSS (MENGTIAN)",
+        tle: [
+          "1 54216U 22143A   25046.44671435  .00033579  00000+0  41148-3 0  9998",
+          "2 54216  41.4668  41.8539 0004646 185.0615 175.0177 15.59641762130889"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "CYGNUS NG-21",
+        tle: [
+          "1 60378U 24139A   25046.57960390  .00014705  00000+0  26380-3 0  9997",
+          "2 60378  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416 29532"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "PROGRESS-MS 28",
+        tle: [
+          "1 60450U 24145A   25046.57960390  .00014705  00000+0  26380-3 0  9995",
+          "2 60450  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416 28149"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "SOYUZ-MS 26",
+        tle: [
+          "1 61043U 24162A   25046.57960390  .00014705  00000+0  26380-3 0  9993",
+          "2 61043  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416494752"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "CREW DRAGON 9",
+        tle: [
+          "1 61447U 24178A   25046.57960390  .00014705  00000+0  26380-3 0  9998",
+          "2 61447  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416 20159"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "SHENZHOU-19 (SZ-19)",
+        tle: [
+          "1 61683U 24194A   25046.44671435  .00033579  00000+0  41148-3 0  9992",
+          "2 61683  41.4668  41.8539 0004646 185.0615 175.0177 15.59641762216969"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "TIANZHOU-8",
+        tle: [
+          "1 61983U 24211A   25046.44671435  .00033579  00000+0  41148-3 0  9995",
+          "2 61983  41.4668  41.8539 0004646 185.0615 175.0177 15.59641762214948"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "PROGRESS-MS 29",
+        tle: [
+          "1 62030U 24215A   25046.57960390  .00014705  00000+0  26380-3 0  9999",
+          "2 62030  51.6365 189.3396 0004186 320.4503  39.6180 15.50142416 11787"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "2024-013E",
+        tle: [
+          "1 62056U 24013E   25046.39901819  .00316869  43092-4  10857-2 0  9994",
+          "2 62056  41.4683  30.5245 0021923 114.1291 246.1853 15.88449118 15040"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "YODAKA",
+        tle: [
+          "1 62295U 98067XB  25046.40518669  .00982121  41019-3  33125-2 0  9997",
+          "2 62295  51.6276 182.8879 0013087 328.5180  31.5041 15.89303405 10678"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "1998-067XC",
+        tle: [
+          "1 62296U 98067XC  25046.60090743  .00211786  00000+0  18070-2 0  9993",
+          "2 62296  51.6307 184.9788 0010957 247.6483 112.3353 15.68246418 10644"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "1998-067XD",
+        tle: [
+          "1 62297U 98067XD  25046.63673458  .00501008  00000+0  25499-2 0  9999",
+          "2 62297  51.6288 182.9526 0011928 275.0034  84.9606 15.79413324 10679"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "YOMOGI",
+        tle: [
+          "1 62298U 98067XE  25046.59559936  .00211582  00000+0  17774-2 0  9991",
+          "2 62298  51.6300 184.9410 0010868 249.2406 110.7426 15.68627737 10645"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "ONGLAISAT",
+        tle: [
+          "1 62299U 98067XF  25046.62161353  .00500312  00000+0  24469-2 0  9999",
+          "2 62299  51.6310 182.8557 0010265 283.3471  76.6386 15.80313216 10652"
+        ],
+        color: categoryColors.active
+      },
+{
+        name: "ISS DEB",
+        tle: [
+          "1 62376U 98067XG  25046.62414917  .00188040  00000+0  17948-2 0  9996",
+          "2 62376  51.6342 185.8978 0008782 252.8427 107.1607 15.65577647  9024"
+        ],
+        color: categoryColors.active
+      },
+    ]
+  },
+  debris: {
+    name: "Debris",
+    satellites: [
+      {
+        name: "COSMOS 2251 DEB",
+        tle: [
+          "1 34393U 09002B   25047.52129577  .00000094  00000+0  27522-3 0  9992",
+          "2 34393  74.0375 141.4379 0021619 356.6663   3.4330 14.34216587 13351"
+        ],
+        color: categoryColors.debris // Assign gray color
+      },
+      {
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 49527U 82092Q   25046.33583653  .00151597  00000+0  53681-2 0  9993",
+          "2 49527  82.3574 140.4035 0170760 357.2426   2.7844 15.15862737171082"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 49537U 82092AA  25046.51726421  .00058292  00000+0  13978-2 0  9999",
+          "2 49537  82.5418  50.3255 0077643 282.1034  77.1519 15.38002636179028"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 50032U 82092RU  25046.36846848  .00008501  00000+0  19793-3 0  9990",
+          "2 50032  82.5673   5.4802 0015581 215.8214 144.1990 15.41975641179698"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 50058U 82092SW  25046.40192853  .00026307  00000+0  49008-3 0  9999",
+          "2 50058  82.6152  19.7043 0025733 122.8564 237.5169 15.48308780181351"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 50404U 82092ADS 25046.54646172  .00077604  00000+0  56045-2 0  9991",
+          "2 50404  82.2306 150.9441 0311302 113.9223 249.4925 14.72267060167230"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 50621U 82092ALR 25046.40586924  .00024002  00000+0  53377-3 0  9995",
+          "2 50621  82.5764  23.2740 0039499 165.0783 195.1641 15.42660310176009"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 50689U 82092APM 25046.27486682  .00429695  76953-4  85637-3 0  9990",
+          "2 50689  82.4981 345.7373 0015170  62.6356 297.6464 15.99604667176595"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 51184U 82092AZJ 25046.13394493  .00110029  00000+0  69369-3 0  9991",
+          "2 51184  82.4857 343.8022 0013865  64.8375 295.4327 15.76177969174386"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 51435U 82092BKH 25046.35744690  .00488329  91327-4  14350-2 0  9999",
+          "2 51435  82.5362  16.6619 0021224 152.0906 208.1512 15.92252688171847"
+        ],
+        color: categoryColors.debris
+      },
+{
+        name: "COSMOS 1408 DEB",
+        tle: [
+          "1 52066U 82092BUU 25045.01987181  .00147036  00000+0  16456-2 0  9995",
+          "2 52066  82.4954  59.2947 0056615 340.9615  18.9523 15.60227879163386"
+        ],
+        color: categoryColors.debris
+      },
+    ]
+  }
+};
+
+    // Flatten satellites for processing while maintaining category info
+    let satellites = [];
+    let satelliteEntities = [];
+    
+    // TLE Update Functions (same as before)
+    // ... (include all the TLE update functions from the previous code)
+    async function updateSatelliteTLEs(satellites) {
+      const updateStatus = document.getElementById('updateStatus');
+      updateStatus.textContent = 'Updating TLEs...';
+
+      const satMap = new Map(satellites.map(sat => {
+        const noradId = sat.tle[0].substring(2, 7).trim();
+        return [noradId, sat];
+      }));
+
+      try {
+        const updatePromises = Array.from(satMap.keys()).map(async (noradId) => {
+          // Add delay between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const response = await fetch("https://celestrak.org/NORAD/elements/gp.php?CATNR=${noradId}&FORMAT=TLE");
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch TLE for satellite ${noradId}`);
+          }
+
+          const tleText = await response.text();
+          const tleLines = tleText.trim().split('\n');
+          
+          if (tleLines.length === 3) {
+            const sat = satMap.get(noradId);
+            if (sat) {
+              sat.tle = [tleLines[1], tleLines[2]];
+              sat.lastUpdate = parseTLEEpoch(tleLines[1]);
+            }
+          }
+        });
+
+        await Promise.all(updatePromises);
+        updateStatus.textContent = 'TLEs updated successfully';
+        setTimeout(() => {
+          updateStatus.textContent = '';
+        }, 3000);
+        return true;
+      } catch (error) {
+        console.error('Error updating TLEs:', error);
+        updateStatus.textContent = 'Error updating TLEs';
+        return false;
+      }
+    }
+
+    function parseTLEEpoch(tleLine1) {
+      const epochStr = tleLine1.substring(18, 32);
+      const year = parseInt(epochStr.substring(0, 2));
+      const daysOfYear = parseFloat(epochStr.substring(2));
+      const fullYear = year + (year < 57 ? 2000 : 1900);
+      const date = new Date(fullYear, 0);
+      date.setDate(1 + Math.floor(daysOfYear));
+      const fractionalDay = daysOfYear % 1;
+      date.setHours(fractionalDay * 24);
+      return date;
+    }
+
+    function needsUpdate(satellite) {
+      if (!satellite.lastUpdate) return true;
+      
+      const now = new Date();
+      const daysSinceUpdate = (now - satellite.lastUpdate) / (1000 * 60 * 60 * 24);
+      
+      const tle = satellite.tle[1];
+      const meanMotion = parseFloat(tle.substring(52, 63));
+      
+      if (meanMotion > 11.25) {
+        return daysSinceUpdate > 2;
+      } else if (meanMotion > 1.5) {
+        return daysSinceUpdate > 7;
+      } else {
+        return daysSinceUpdate > 14;
+      }
+    }
+
+    // Satellite Position Calculation
+    function getSatellitePosition(tle, start, totalSeconds, timestepInSeconds) {
+      const satrec = satellite.twoline2satrec(tle[0].trim(), tle[1].trim());
+      const positionsOverTime = new Cesium.SampledPositionProperty();
+
+      for (let i = 0; i < totalSeconds; i += timestepInSeconds) {
+        const time = Cesium.JulianDate.addSeconds(start, i, new Cesium.JulianDate());
+        const jsDate = Cesium.JulianDate.toDate(time);
+        const positionAndVelocity = satellite.propagate(satrec, jsDate);
+        const gmst = satellite.gstime(jsDate);
+        const p = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+        const position = Cesium.Cartesian3.fromRadians(p.longitude, p.latitude, p.height * 1000);
+        positionsOverTime.addSample(time, position);
+      }
+
+      return positionsOverTime;
+    }
+
+    // Visualization Update
+    async function updateVisualization() {
+      const needUpdate = satellites.some(needsUpdate);
+      
+      if (needUpdate) {
+        const updated = await updateSatelliteTLEs(satellites);
+        if (updated) {
+          satellites.forEach((sat, index) => {
+            const position = getSatellitePosition(sat.tle, start, totalSeconds, timestepInSeconds);
+            satelliteEntities[index].position = position;
+          });
+        }
+      }
+    }
+
+    // Initialize timeline
+    const totalSeconds = 60 * 60 * 6;
+    const timestepInSeconds = 10;
+    const start = Cesium.JulianDate.fromDate(new Date());
+    const stop = Cesium.JulianDate.addSeconds(start, totalSeconds, new Cesium.JulianDate());
+
+    viewer.clock.startTime = start.clone();
+    viewer.clock.stopTime = stop.clone();
+    viewer.clock.currentTime = start.clone();
+    viewer.timeline.zoomTo(start, stop);
+    viewer.clock.multiplier = 40;
+    viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
+
+    // Function to toggle category visibility
+    function toggleCategory(categoryId, visible) {
+      const categoryItems = document.querySelectorAll(`.satellite-item[data-category="${categoryId}"]`);
+      categoryItems.forEach(item => {
+        const index = parseInt(item.getAttribute('data-index'));
+        if (satelliteEntities[index]) {
+          satelliteEntities[index].show = visible;
+          item.classList.toggle('hidden', !visible);
+        }
+      });
+    }
+
+    // Create satellite list UI with categories
+    function createSatelliteList() {
+      const satelliteListDiv = document.getElementById('satelliteList');
+      satelliteListDiv.innerHTML = ''; // Clear existing content
+      
+      // Process each category
+      Object.entries(satelliteCategories).forEach(([categoryId, category]) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'category';
+        
+        // Create category header with checkbox
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'category-header';
+        
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.addEventListener('change', (e) => {
+          toggleCategory(categoryId, e.target.checked);
+        });
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(category.name));
+        headerDiv.appendChild(label);
+        categoryDiv.appendChild(headerDiv);
+        
+        // Create container for satellites in this category
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'category-content';
+        
+        // Add satellites to the category
+        category.satellites.forEach((sat, categoryIndex) => {
+          const globalIndex = satellites.length;
+          satellites.push({ ...sat, category: categoryId });
+          
+          const item = document.createElement('div');
+          item.className = 'satellite-item';
+          item.setAttribute('data-index', globalIndex);
+          item.setAttribute('data-category', categoryId);
+          
+          const colorDot = document.createElement('span');
+          colorDot.className = 'color-dot';
+          colorDot.style.backgroundColor = sat.color.toCssColorString();
+          
+          const name = document.createElement('span');
+          name.textContent = sat.name;
+          
+          item.appendChild(colorDot);
+          item.appendChild(name);
+          
+          item.addEventListener('click', () => {
+            const wasSelected = item.classList.contains('selected');
+            
+            // Hide all orbital paths and remove selections
+            satelliteEntities.forEach(entity => {
+              if (entity.path) entity.path.show = false;
+            });
+            document.querySelectorAll('.satellite-item').forEach(el => {
+              el.classList.remove('selected');
+            });
+            
+            // Show selected orbital path
+            if (!wasSelected) {
+              satelliteEntities[globalIndex].path.show = true;
+              item.classList.add('selected');
+              
+              viewer.flyTo(satelliteEntities[globalIndex], {
+                offset: new Cesium.HeadingPitchRange(0, -Math.PI/4, 2000000)
+              });
+            }
+          });
+          
+          contentDiv.appendChild(item);
+        });
+        
+        categoryDiv.appendChild(contentDiv);
+        satelliteListDiv.appendChild(categoryDiv);
+      });
+    }
+
+    // Initialize satellites and their entities
+    function initializeSatellites() {
+  createSatelliteList();
+  
+  satelliteEntities = satellites.map(sat => {
+    const position = getSatellitePosition(sat.tle, start, totalSeconds, timestepInSeconds);
+    return viewer.entities.add({
+      position: position,
+      point: {
+        pixelSize: 10,
+        color: sat.color,
+      },
+      path: {
+        show: false,
+        width: 1,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.3,
+          color: sat.color.withAlpha(0.9) // Slightly transparent path for better visibility
+        }),
+        leadTime: totalSeconds,
+        trailTime: 0
+      },
+      label: { 
+        text: sat.name, 
+        fillColor: Cesium.Color.WHITE, 
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -10)
+      }
+    });
+  });
+}
+
+    // Initialize everything
+    initializeSatellites();
+    viewer.flyTo(satelliteEntities);
+
+    let initialized = false;
+    viewer.scene.globe.tileLoadProgressEvent.addEventListener(() => {
+      if (!initialized && viewer.scene.globe.tilesLoaded === true) {
+        viewer.clock.shouldAnimate = true;
+        initialized = true;
+        viewer.scene.camera.zoomOut(7000000);
+        document.querySelector("#loading").classList.toggle('disappear', true);
+      }
+    });
+
+    // Start periodic updates
+    updateVisualization();
+    setInterval(updateVisualization, 1000 * 60 * 60);
+  </script>
+</body>
+</html>
